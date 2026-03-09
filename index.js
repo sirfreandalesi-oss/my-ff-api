@@ -1,34 +1,38 @@
-const express = require('express');
 const axios = require('axios');
-const app = express();
 
-// المصدر الذي سنأخذ منه البيانات
-const SOURCE = "https://api-like.vercel.app/api/v1";
+module.exports = async (req, res) => {
+    const { uid } = req.query;
 
-app.get('/', (req, res) => {
-    res.json({ message: "API يعمل بنجاح!", developer: "Sirfreandalesi" });
-});
-
-app.get('/ff', async (req, res) => {
-    const { region, uid } = req.query;
-    
-    if (!uid || !region) {
-        return res.json({ error: "الرجاء إدخال الـ UID والمنطقة (Region)" });
+    if (!uid) {
+        return res.status(400).json({ error: "الرجاء إرسال الـ UID" });
     }
 
     try {
-        const response = await axios.get(`${SOURCE}/account?region=${region.toUpperCase()}&uid=${uid}`);
-        res.json({
-            status: "success",
-            developer: "Sirfreandalesi",
-            player_data: response.data
+        // طلب البيانات من Shop2Game
+        const response = await axios.post('https://shop2game.com/api/auth/get_user_info/multi', {
+            "app_id": 100067,
+            "login_id": uid,
+            "app_server_id": 0
+        }, {
+            headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0'
+            }
         });
-    } catch (e) {
-        res.json({ error: "السيرفر المصدر لا يستجيب حالياً، حاول لاحقاً" });
-    }
-});
 
-module.exports = app;
-const PORT = process.env.PORT || 3000;
-app.listen(PORT);
-                                            
+        if (response.data && response.data.nickname) {
+            res.json({
+                status: "success",
+                player_data: {
+                    nickname: response.data.nickname,
+                    uid: uid
+                }
+            });
+        } else {
+            res.json({ status: "error", message: "اللاعب غير موجود" });
+        }
+    } catch (error) {
+        res.status(500).json({ status: "error", message: "فشل الاتصال بـ Shop2Game" });
+    }
+};
+        
